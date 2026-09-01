@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcade Coder - Modo Historia</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --border-color: #3fb950;
+            --text-main: #c9d1d9;
+            --text-highlight: #58a6ff;
+            --error-color: #f85149;
+            --warning-color: #d29922;
+            --cell-size: 28px;
+        }
+
+        @media (min-width: 768px) {
+            :root { --cell-size: 42px; }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            text-align: center;
+            padding: 12px;
+            background-color: #010409;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.2rem;
+            color: var(--border-color);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .stars-display {
+            font-size: 1.2rem;
+            color: #ffd700;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        /* --- ZONA DE TUTORIAL / DIÁLOGO --- */
+        .tutorial-panel {
+            background-color: #0d1117;
+            border-bottom: 2px solid #30363d;
+            padding: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .avatar {
+            width: 60px;
+            height: 60px;
+            background-color: #1f6feb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            flex-shrink: 0;
+            border: 2px solid #58a6ff;
+        }
+
+        .dialog-box {
+            flex: 1;
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+            border: 1px solid #30363d;
+        }
+
+        .dialog-box::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: 20px;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid var(--panel-bg);
+        }
+        
+        .dialog-box::after {
+            content: '';
+            position: absolute;
+            left: -11px;
+            top: 20px;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid #30363d;
+            z-index: -1;
+        }
+
+        .dialog-title {
+            color: var(--text-highlight);
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .dialog-content {
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .dialog-content code {
+            background-color: rgba(110, 118, 129, 0.4);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #ff7b72;
+        }
+
+        .dialog-nav {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn-dialog {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .btn-dialog:hover { background-color: #2ea043; }
+        .btn-dialog:disabled { background-color: #30363d; color: #8b949e; cursor: not-allowed; }
+
+        /* --- ZONA DE JUEGO --- */
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .canvas-container {
+            padding: 15px;
+            background-color: #010409;
+            display: flex;
+            justify-content: center;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .grid-container {
+            display: grid;
+            gap: 2px;
+            background-color: #30363d;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: #161b22;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(var(--cell-size) * 0.65);
+            border-radius: 2px;
+        }
+
+        .cell.wall { background-color: #21262d; border: 1px solid #30363d; }
+        .cell.path { background-color: #0d1117; }
+        .player { text-shadow: 0 0 10px #58a6ff; }
+        .goal { text-shadow: 0 0 10px gold; }
+
+        /* --- EDITOR DE CÓDIGO --- */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--panel-bg);
+            padding: 10px;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            background-color: #0d1117;
+            color: #e6edf3;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px; /* Previene auto-zoom en iOS */
+            padding: 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            resize: vertical;
+            outline: none;
+            line-height: 1.4;
+        }
+        
+        textarea:focus { border-color: #58a6ff; }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-size: 1rem;
+        }
+
+        .btn-run { background-color: #238636; color: white; }
+        .btn-run:active { background-color: #2ea043; }
+        
+        .btn-reset { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-reset:active { background-color: #30363d; }
+
+        .console {
+            margin-top: 10px;
+            background-color: #010409;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            height: 80px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+        }
+
+        .msg-info { color: #8b949e; }
+        .msg-error { color: var(--error-color); }
+        .msg-success { color: var(--border-color); }
+
+        /* Modal Puntuación */
+        .overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(1, 4, 9, 0.9);
+            display: none; align-items: center; justify-content: center;
+            z-index: 200; padding: 20px;
+        }
+
+        .modal {
+            background: var(--panel-bg);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .modal-stars { font-size: 3rem; margin: 15px 0; color: #ffd700; letter-spacing: 5px; }
+        .modal-feedback { margin-bottom: 20px; line-height: 1.5; font-size: 1rem; }
+        .btn-next-level { width: 100%; background-color: #1f6feb; color: white; }
+
+        @media (min-width: 768px) {
+            .main-container { flex-direction: row; overflow: hidden; }
+            .left-col { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #30363d; overflow-y: auto;}
+            .right-col { flex: 1; display: flex; flex-direction: column; overflow-y: auto;}
+            .tutorial-panel { border-bottom: none; }
+            .game-area { display: contents; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ARCADE CODER: ACADEMY</h1>
+        <div class="stars-display" id="totalStarsDisplay">⭐ 0</div>
+    </header>
+
+    <div class="main-container">
+        <!-- Columna Izquierda (En PC) / Superior (En Móvil): Tutorial y Juego -->
+        <div class="left-col">
+            <!-- Tutorial -->
+            <div class="tutorial-panel">
+                <div class="avatar">👨‍🏫</div>
+                <div class="dialog-box">
+                    <div class="dialog-title" id="dialogTitle">Cargando...</div>
+                    <div class="dialog-content" id="dialogContent">Preparando lección...</div>
+                    <div class="dialog-nav">
+                        <button class="btn-dialog" id="btnPrevDialog" onclick="prevDialog()">Anterior</button>
+                        <button class="btn-dialog" id="btnNextDialog" onclick="nextDialog()">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Juego -->
+            <div class="canvas-container">
+                <div class="grid-container" id="gridContainer"></div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha (En PC) / Inferior (En Móvil): Editor -->
+        <div class="right-col">
+            <div class="editor-container">
+                <div class="editor-header">
+                    <span>📝 Archivo: <span id="fileName">script.js</span></span>
+                    <span>JavaScript</span>
+                </div>
+                
+                <!-- Desactivamos el panel hasta que termine el tutorial -->
+                <textarea id="codeEditor" spellcheck="false" autocorrect="off" autocapitalize="off" disabled></textarea>
+                
+                <div class="controls">
+                    <button class="btn-action btn-reset" id="btnRestart" onclick="restartLevel()" disabled>↻ Reiniciar</button>
+                    <button class="btn-action btn-run" id="btnRun" onclick="runCode()" disabled>▶ Ejecutar</button>
+                </div>
+
+                <div class="console" id="console">
+                    <div class="msg-info">Lee el tutorial para desbloquear el editor...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Fin de Nivel -->
+    <div class="overlay" id="levelCompleteModal">
+        <div class="modal">
+            <h2 id="modalTitle">¡Nivel Completado!</h2>
+            <div class="modal-stars" id="modalStars">⭐⭐⭐</div>
+            <div class="modal-feedback" id="modalFeedback">Completaste la tarea correctamente.</div>
+            <button class="btn-action btn-next-level" onclick="startNextLevel()">Siguiente Lección ➔</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BASE DE DATOS DE LECCIONES (EL CORAZÓN DEL APRENDIZAJE) ---
+        /*
+          Cada nivel enseña un concepto desde 0.
+          dialogs: Array de textos que el profesor dirá.
+          expectedAST: (Abstracción) Qué esperamos que use el alumno para darle 3 estrellas.
+        */
+        const lessons = [
+            {
+                title: "1. ¿Qué es Programar?",
+                file: "secuencias.js",
+                dialogs: [
+                    "¡Hola! Soy el Profesor Bit. Bienvenido a la Academia de Programación.",
+                    "Programar es simplemente <b>darle instrucciones</b> a una computadora para que haga algo por ti.",
+                    "La computadora no piensa, solo obedece. Si le dices 'camina contra la pared', lo hará y se estrellará. Eres tú quien debe pensar la lógica.",
+                    "Las instrucciones se dan escribiendo <b>Comandos</b> o <b>Funciones</b>. Por ejemplo, para mover este robot a la derecha, el comando en lenguaje JavaScript es: <code>derecha();</code>",
+                    "Nota que termina con paréntesis <code>()</code> que indican que es una acción, y un punto y coma <code>;</code> que indica que la orden ha terminado.",
+                    "<b>TU MISIÓN:</b> Escribe el comando <code>derecha();</code> dos veces para llevar al robot 🤖 hasta la bandera 🚩. ¡El editor ya está desbloqueado!"
+                ],
+                grid: [
+                    "W W W W W",
+                    "W P . M W",
+                    "W W W W W"
+                ],
+                initialCode: "// Escribe las instrucciones aquí abajo\n",
+                evaluator: function(code, history) {
+                    // Validar buenas prácticas
+                    const lines = code.split(';').filter(l => l.trim() !== '');
+                    if(lines.length === 2 && code.includes('derecha()')) {
+                        return { stars: 3, feedback: "¡Perfecto! Entendiste la sintaxis básica. Dos comandos, dos pasos."};
+                    }
+                    return { stars: 2, feedback: "Llegaste a la meta, pero tu código podría estar más limpio. Recuerda que solo necesitabas dos comandos `derecha();`."};
+                }
+            },
+            {
+                title: "2. Los Errores (Bugs)",
+                file: "bugs.js",
+                dialogs: [
+                    "¡Excelente trabajo! Ahora hablemos de algo que verás mucho: Los <b>Bugs</b>.",
+                    "Un 'Bug' (bicho) es un error en tu código. Ocurre cuando le das una instrucción equivocada a la computadora.",
+                    "En programación, el orden importa muchísimo. A esto se le llama <b>Secuencia</b>. El código se lee de arriba hacia abajo, línea por línea.",
+                    "<b>TU MISIÓN:</b> Alguien escribió este código para llegar a la bandera, pero el robot se estrella contra la pared de abajo. ¡Encuentra el Bug y corrígelo!"
+                ],
+                grid: [
+                    "W W W W W",
+                    "W P . W W",
+                    "W W . M W",
+                    "W W W W W"
+                ],
+                initialCode: "// ¡Hay un bug en este código!\nderecha();\nabajo();\nabajo(); // <-- ¿De verdad necesitas ir abajo dos veces?\nderecha();",
+                evaluator: function(code, history) {
+                    let countAbajo = (code.match(/abajo/g) || []).length;
+                    if(countAbajo === 1) {
+                        return { stars: 3, feedback: "¡Gran trabajo como Debugger! Eliminaste la instrucción que sobraba."};
+                    }
+                    return { stars: 1, feedback: "Llegaste a la meta, pero tu código sigue haciendo cosas raras. La solución óptima era borrar una línea."};
+                }
+            },
+            {
+                title: "3. El problema de repetir",
+                file: "intro_bucles.js",
+                dialogs: [
+                    "Ya sabes dar instrucciones, pero hay un problema. Mira ese pasillo largo.",
+                    "Para llegar a la bandera tendrías que escribir <code>derecha();</code> 7 veces.",
+                    "¡Los programadores somos perezosos! No nos gusta escribir lo mismo muchas veces. ¿Y si el pasillo midiera 1000 pasos? ¿Escribirías 1000 líneas?",
+                    "Para solucionar esto, inventamos los <b>Bucles (Loops)</b>. Un bucle repite una parte de tu código las veces que tú le digas.",
+                    "Hoy aprenderemos el bucle más famoso: el <b>Bucle FOR</b>.",
+                    "Se escribe así:<br><code>for (let i = 0; i < 7; i++) {</code><br>&nbsp;&nbsp;<code>derecha();</code><br><code>}</code>",
+                    "El número <code>7</code> le dice a la computadora cuántas veces debe repetir lo que está dentro de las llaves <code>{ }</code>.",
+                    "<b>TU MISIÓN:</b> Usa el bucle FOR para avanzar 7 espacios sin escribir 7 líneas."
+                ],
+                grid: [
+                    "W W W W W W W W W W W",
+                    "W P . . . . . . . M W",
+                    "W W W W W W W W W W W"
+                ],
+                initialCode: "// Modifica el número 5 por el número correcto\nfor (let i = 0; i < 5; i++) {\n    derecha();\n}\n",
+                evaluator: function(code, history) {
+                    const usaFor = code.includes('for');
+                    const repeticionesDerecha = (code.match(/derecha/g) || []).length;
+                    
+                    if (usaFor && repeticionesDerecha === 1) {
+                        return { stars: 3, feedback: "¡Brillante! Entendiste que el bucle FOR ahorra muchísimo tiempo y líneas de código."};
+                    } else if (repeticionesDerecha > 3) {
+                        return { stars: 1, feedback: "Llegaste, pero ignoraste la lección. Escribiste `derecha();` demasiadas veces. ¡Para tener 3 estrellas debes usar el bucle `for`!"};
+                    }
+                    return { stars: 2, feedback: "Funcionó, pero tu uso del bucle for podría ser más limpio."};
+                }
+            },
+            {
+                title: "4. Bloques de Código",
+                file: "bloques.js",
+                dialogs: [
+                    "Muy bien. ¿Ves las llaves <code>{ }</code> en el bucle FOR? A lo que está dentro se le llama <b>Bloque de Código</b>.",
+                    "La magia de los bloques es que puedes meter <b>varias</b> instrucciones adentro, no solo una.",
+                    "Mira el mapa. El patrón para bajar esa escalera es: <i>derecha, abajo, derecha, abajo...</i>",
+                    "<b>TU MISIÓN:</b> Mete más de una instrucción dentro del bloque del bucle FOR para bajar la escalera completa repitiendo el patrón 3 veces."
+                ],
+                grid: [
+                    "W W W W W W W W",
+                    "W P . W W W W W",
+                    "W W . . W W W W",
+                    "W W W . . W W W",
+                    "W W W W . M W W",
+                    "W W W W W W W W"
+                ],
+                initialCode: "for (let i = 0; i < 3; i++) {\n    // Pon las instrucciones del patrón aquí adentro\n    \n}\n",
+                evaluator: function(code, history) {
+                    if (code.includes('for') && (code.match(/derecha/g) || []).length === 1 && (code.match(/abajo/g) || []).length === 1) {
+                        return { stars: 3, feedback: "¡Excelente! Has agrupado instrucciones. Acabas de crear un algoritmo complejo con solo 3 líneas de código."};
+                    }
+                    return { stars: 1, feedback: "Llegaste a la meta, pero no usaste el bucle correctamente. Escribir todas las instrucciones una por una no es eficiente. Intenta usar las llaves { }."};
+                }
+            }
+        ];
+
+        // --- ESTADO GLOBAL ---
+        let currentLesson = 0;
+        let currentDialog = 0;
+        let totalStars = 0;
+        let grid = [];
+        let playerPos = { r: 0, c: 0 };
+        let startPos = { r: 0, c: 0 };
+        let isPlaying = false;
+        let activeRunId = 0;
+        let commandHistory = []; // Guarda lo que hace el robot para evaluar después
+
+        // DOM
+        const dialogTitleEl = document.getElementById('dialogTitle');
+        const dialogContentEl = document.getElementById('dialogContent');
+        const btnPrevDialog = document.getElementById('btnPrevDialog');
+        const btnNextDialog = document.getElementById('btnNextDialog');
+        
+        const gridContainerEl = document.getElementById('gridContainer');
+        const codeEditorEl = document.getElementById('codeEditor');
+        const consoleEl = document.getElementById('console');
+        const fileNameEl = document.getElementById('fileName');
+        
+        const btnRun = document.getElementById('btnRun');
+        const btnRestart = document.getElementById('btnRestart');
+        const totalStarsDisplay = document.getElementById('totalStarsDisplay');
+
+        // --- SISTEMA DE DIÁLOGOS (TUTORIAL) ---
+        function loadDialog() {
+            const lesson = lessons[currentLesson];
+            dialogTitleEl.textContent = lesson.title;
+            dialogContentEl.innerHTML = lesson.dialogs[currentDialog];
+            
+            // Lógica de botones
+            btnPrevDialog.disabled = currentDialog === 0;
+            
+            if (currentDialog === lesson.dialogs.length - 1) {
+                btnNextDialog.textContent = "¡A Programar!";
+                btnNextDialog.style.backgroundColor = "#1f6feb";
+            } else {
+                btnNextDialog.textContent = "Siguiente";
+                btnNextDialog.style.backgroundColor = "#238636";
+            }
+        }
+
+        function nextDialog() {
+            const lesson = lessons[currentLesson];
+            if (currentDialog < lesson.dialogs.length - 1) {
+                currentDialog++;
+                loadDialog();
+            } else {
+                // Termina el tutorial, desbloquea el editor
+                unlockEditor();
+            }
+        }
+
+        function prevDialog() {
+            if (currentDialog > 0) {
+                currentDialog--;
+                loadDialog();
+            }
+        }
+
+        function unlockEditor() {
+            codeEditorEl.disabled = false;
+            btnRun.disabled = false;
+            btnRestart.disabled = false;
+            
+            // Cambiar color del editor para indicar que está activo
+            codeEditorEl.style.backgroundColor = "#0d1117";
+            codeEditorEl.style.color = "#c9d1d9";
+            
+            logMsg("Editor Desbloqueado. Escribe tu código y presiona Ejecutar.", "success");
+            
+            // Scroll en móvil para ir al editor
+            if(window.innerWidth < 768) {
+                codeEditorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function lockEditor() {
+            codeEditorEl.disabled = true;
+            btnRun.disabled = true;
+            btnRestart.disabled = true;
+            codeEditorEl.style.backgroundColor = "#161b22";
+            codeEditorEl.style.color = "#8b949e";
+            clearConsole();
+            logMsg("Lee el tutorial arriba para desbloquear el editor...", "info");
+        }
+
+        // --- SISTEMA DE NIVELES Y RENDER ---
+        function loadLesson(index) {
+            currentLesson = index;
+            currentDialog = 0;
+            activeRunId++;
+            isPlaying = false;
+            commandHistory = [];
+            
+            const lesson = lessons[index];
+            fileNameEl.textContent = lesson.file;
+            codeEditorEl.value = lesson.initialCode;
+            
+            lockEditor();
+            loadDialog();
+            
+            parseGrid(lesson.grid);
+            renderGrid();
+        }
+
+        function parseGrid(levelGrid) {
+            grid = [];
+            const rows = levelGrid.length;
+            const cols = levelGrid[0].split(' ').length;
+            
+            gridContainerEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+            gridContainerEl.style.gridTemplateRows = `repeat(${rows}, var(--cell-size))`;
+
+            for (let r = 0; r < rows; r++) {
+                const cells = levelGrid[r].split(' ');
+                let rowArray = [];
+                for (let c = 0; c < cols; c++) {
+                    const cellType = cells[c];
+                    rowArray.push(cellType);
+                    if (cellType === 'P') {
+                        startPos = { r, c };
+                        playerPos = { r, c };
+                    }
+                }
+                grid.push(rowArray);
+            }
+        }
+
+        function renderGrid() {
+            gridContainerEl.innerHTML = '';
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < grid[r].length; c++) {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    const cellType = grid[r][c];
+                    
+                    if (cellType === 'W') cellDiv.classList.add('wall');
+                    else cellDiv.classList.add('path');
+
+                    if (r === playerPos.r && c === playerPos.c) {
+                        cellDiv.textContent = '🤖';
+                        cellDiv.classList.add('player');
+                    } else if (cellType === 'M') {
+                        cellDiv.textContent = '🚩';
+                        cellDiv.classList.add('goal');
+                    }
+                    gridContainerEl.appendChild(cellDiv);
+                }
+            }
+        }
+
+        function logMsg(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `msg-${type}`;
+            div.textContent = `> ${msg}`;
+            consoleEl.appendChild(div);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleEl.innerHTML = '';
+        }
+
+        // --- MOTOR DE EJECUCIÓN ---
+        function runCode() {
+            if (isPlaying) return;
+            
+            const userCode = codeEditorEl.value;
+            clearConsole();
+            logMsg("Compilando programa...", "info");
+            
+            btnRun.disabled = true;
+            codeEditorEl.disabled = true;
+            commandHistory = []; // Reset history for evaluation
+
+            if(window.innerWidth < 768) {
+                gridContainerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Web Worker de seguridad
+            const workerScript = `
+                onmessage = function(e) {
+                    let queue = [];
+                    function arriba() { queue.push('up'); }
+                    function abajo() { queue.push('down'); }
+                    function izquierda() { queue.push('left'); }
+                    function derecha() { queue.push('right'); }
+                    
+                    try {
+                        const fn = new Function('arriba', 'abajo', 'izquierda', 'derecha', e.data);
+                        fn(arriba, abajo, izquierda, derecha);
+                        postMessage({ success: true, queue: queue });
+                    } catch (error) {
+                        postMessage({ success: false, error: error.message });
+                    }
+                }
+            `;
+
+            const blob = new Blob([workerScript], { type: 'application/javascript' });
+            const worker = new Worker(URL.createObjectURL(blob));
+
+            const timeout = setTimeout(() => {
+                worker.terminate();
+                logMsg("ERROR DE EJECUCIÓN: Detectado un Bucle Infinito. Revisa las condiciones de tu 'for'.", "error");
+                btnRun.disabled = false;
+                codeEditorEl.disabled = false;
+            }, 1500);
+
+            worker.onmessage = function(e) {
+                clearTimeout(timeout);
+                worker.terminate(); 
+                
+                if (e.data.success) {
+                    executeQueue(e.data.queue, userCode);
+                } else {
+                    logMsg(`Error de Sintaxis: ${e.data.error}`, "error");
+                    logMsg(`Revisa paréntesis (), llaves {} y puntos y coma ;`, "info");
+                    btnRun.disabled = false;
+                    codeEditorEl.disabled = false;
+                }
+            };
+
+            worker.postMessage(userCode);
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        async function executeQueue(queue, userCode) {
+            isPlaying = true;
+            activeRunId++;
+            const runId = activeRunId;
+            
+            if(queue.length === 0) {
+                logMsg("El programa no movió al robot.", "error");
+                resetUI();
+                return;
+            }
+
+            for (let i = 0; i < queue.length; i++) {
+                if (runId !== activeRunId) return; 
+                
+                const cmd = queue[i];
+                commandHistory.push(cmd);
+                
+                let newR = playerPos.r;
+                let newC = playerPos.c;
+
+                if (cmd === 'up') newR--;
+                if (cmd === 'down') newR++;
+                if (cmd === 'left') newC--;
+                if (cmd === 'right') newC++;
+
+                if (newR < 0 || newR >= grid.length || newC < 0 || newC >= grid[0].length || grid[newR][newC] === 'W') {
+                    logMsg(`¡Error de lógica! El robot se estrelló contra un muro.`, "error");
+                    crashPlayer();
+                    return;
+                }
+
+                playerPos.r = newR;
+                playerPos.c = newC;
+                renderGrid();
+                
+                if (grid[newR][newC] === 'M') {
+                    await sleep(300); // Pequeña pausa antes de mostrar la victoria
+                    evaluateVictory(userCode);
+                    return;
+                }
+
+                await sleep(400); // Velocidad de movimiento
+            }
+
+            // Si se acaba la cola y no hay victoria ni choque
+            logMsg(`Programa terminado, pero el robot no alcanzó la bandera.`, "error");
+            resetUI();
+        }
+
+        function resetUI() {
+            btnRun.disabled = false;
+            codeEditorEl.disabled = false;
+            isPlaying = false;
+        }
+
+        function crashPlayer() {
+            isPlaying = false;
+            gridContainerEl.style.boxShadow = "0 0 15px #f85149";
+            setTimeout(() => {
+                gridContainerEl.style.boxShadow = "none";
+                resetUI();
+            }, 800);
+        }
+
+        function restartLevel() {
+            playerPos = { r: startPos.r, c: startPos.c };
+            activeRunId++; 
+            isPlaying = false;
+            gridContainerEl.style.boxShadow = "none";
+            clearConsole();
+            renderGrid();
+            resetUI();
+        }
+
+        // --- SISTEMA DE EVALUACIÓN (EL PROFESOR VIRTUAL) ---
+        function evaluateVictory(userCode) {
+            isPlaying = false;
+            const lesson = lessons[currentLesson];
+            
+            // Llama a la función evaluadora específica de este nivel
+            const result = lesson.evaluator(userCode, commandHistory);
+            
+            // Actualizar estrellas globales
+            totalStars += result.stars;
+            totalStarsDisplay.textContent = `⭐ ${totalStars}`;
+            
+            // Mostrar modal
+            const modalTitle = document.getElementById('modalTitle');
+            const modalStars = document.getElementById('modalStars');
+            const modalFeedback = document.getElementById('modalFeedback');
+            
+            let starsString = "";
+            for(let i=0; i<3; i++) {
+                if(i < result.stars) starsString += "⭐";
+                else starsString += "☆";
+            }
+            
+            modalStars.textContent = starsString;
+            modalTitle.textContent = result.stars === 3 ? "¡Código Perfecto!" : "Nivel Superado";
+            modalTitle.style.color = result.stars === 3 ? "#3fb950" : "#58a6ff";
+            
+            modalFeedback.innerHTML = `<b>Profesor Bit dice:</b><br>${result.feedback}`;
+            
+            document.getElementById('levelCompleteModal').style.display = 'flex';
+        }
+
+        function startNextLevel() {
+            document.getElementById('levelCompleteModal').style.display = 'none';
+            
+            if (currentLesson < lessons.length - 1) {
+                loadLesson(currentLesson + 1);
+            } else {
+                // Final del prototipo
+                document.getElementById('dialogTitle').textContent = "¡Curso Completado!";
+                document.getElementById('dialogContent').innerHTML = `Has completado el módulo básico con <b>${totalStars} estrellas</b>. <br><br>Ya sabes dar instrucciones, buscar bugs, usar bucles y agrupar bloques de código. ¡Esa es la base de todo software en el mundo!`;
+                document.getElementById('btnPrevDialog').style.display = 'none';
+                document.getElementById('btnNextDialog').style.display = 'none';
+                lockEditor();
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            loadLesson(0);
+        };
+
+    </script>
+</body>
+</html>
